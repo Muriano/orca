@@ -63,7 +63,11 @@ export function RemoteRuntimeRecoveryCard({
           <div className="flex items-baseline gap-2">
             <div className="min-w-0 truncate text-sm font-semibold">{title}</div>
             {downSince !== null ? (
-              <div className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+              // Why hidden: a per-second tick inside the live region would re-announce the whole card.
+              <div
+                aria-hidden="true"
+                className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
+              >
                 {remoteRuntimeDownForLabel(now - downSince)}
               </div>
             ) : null}

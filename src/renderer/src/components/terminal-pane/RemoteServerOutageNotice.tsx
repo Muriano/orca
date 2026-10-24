@@ -1,5 +1,5 @@
 import { useAppStore } from '@/store'
-import { useCalmStatusReveal } from '@/hooks/use-calm-status-reveal'
+import type { CalmStatusView } from '@/hooks/use-calm-status-reveal'
 import { RemoteRuntimeRecoveryCard } from './RemoteRuntimeRecoveryCard'
 import { remoteRuntimeRecoveryCopy } from './remote-runtime-recovery-copy'
 import {
@@ -10,18 +10,15 @@ import {
 
 /**
  * The one notice for a server whose shared connection dropped and is retrying, in place of a
- * banner in every pane. Stays mounted after `speaking` ends so its hold can run out.
+ * banner in every pane. The surface owns `reveal`, so its panes stay quiet for as long as this shows.
  */
 export function RemoteServerOutageNotice({
   environmentId,
-  speaking,
-  since
+  reveal
 }: {
   environmentId: string
-  speaking: boolean
-  since: number | null
+  reveal: CalmStatusView
 }): React.JSX.Element | null {
-  const reveal = useCalmStatusReveal(speaking, false, since)
   const serverName = useAppStore((state) => selectRuntimeServerName(state, environmentId))
   const cause = useAppStore((state) => selectRemoteServerOutageCause(state, environmentId))
   const tailscaleHost = useAppStore((state) =>

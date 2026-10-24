@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CALM_STATUS_REVEAL_DELAY_MS } from '../../../../shared/calm-status-reveal'
 import type { TerminalPaneController } from './use-terminal-pane-controller'
 
+const outage = vi.hoisted((): { environmentId: string | null } => ({ environmentId: 'env-1' }))
+
 vi.mock('@/i18n/i18n', () => ({
   translate: (_key: string, fallback: string, options?: Record<string, string>) =>
     fallback.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => options?.[name] ?? ''),
@@ -18,13 +20,14 @@ vi.mock('./use-managed-pairing-refused', () => ({
 }))
 vi.mock('./remote-server-outage', () => ({
   useWorkspaceRuntimeEnvironmentId: () => 'env-1',
-  useRetryingOutageEnvironmentId: () => 'env-1',
+  useRetryingOutageEnvironmentId: () => outage.environmentId,
   selectRuntimeServerName: () => 'Desk',
   selectRuntimeServerTailscaleHost: () => null,
   selectRemoteServerOutageCause: () => 'connection-lost'
 }))
 
 afterEach(() => {
+  outage.environmentId = 'env-1'
   cleanup()
   vi.useRealTimers()
 })
@@ -54,6 +57,24 @@ describe('TerminalPaneRecoveryPortals', () => {
     const view = render(<TerminalPaneRecoveryPortals controller={controllerFor(panes)} />)
 
     act(() => vi.advanceTimersByTime(CALM_STATUS_REVEAL_DELAY_MS))
+
+    expect(view.container.querySelectorAll('[data-remote-server-outage-notice]')).toHaveLength(1)
+    expect(
+      document.querySelectorAll('[data-terminal-remote-runtime-reconnect-banner]')
+    ).toHaveLength(0)
+  })
+
+  it('keeps panes quiet while the server notice holds after the server answers', async () => {
+    vi.useFakeTimers()
+    const { TerminalPaneRecoveryPortals } = await import('./TerminalPaneRecoveryPortals')
+    const panes = [document.createElement('div')]
+    panes.forEach((pane) => document.body.appendChild(pane))
+    const controller = controllerFor(panes)
+    const view = render(<TerminalPaneRecoveryPortals controller={controller} />)
+    act(() => vi.advanceTimersByTime(CALM_STATUS_REVEAL_DELAY_MS * 2))
+
+    outage.environmentId = null
+    view.rerender(<TerminalPaneRecoveryPortals controller={{ ...controller }} />)
 
     expect(view.container.querySelectorAll('[data-remote-server-outage-notice]')).toHaveLength(1)
     expect(

@@ -10,6 +10,7 @@ import {
 } from './remote-server-outage'
 import { useRemoteServerNoticeClaim } from './remote-server-notice-claims'
 import { RemoteServerOutageNotice } from './RemoteServerOutageNotice'
+import { useCalmStatusReveal } from '@/hooks/use-calm-status-reveal'
 import type { TerminalPaneController } from './use-terminal-pane-controller'
 
 /** What a pane's Reconnect does: pair again first when the server refused us, then retry. */
@@ -57,6 +58,9 @@ export function TerminalPaneRecoveryPortals({
   if (notice.speaks && retryingOutageEnvironmentId !== noticeEnvironmentId) {
     setNoticeEnvironmentId(retryingOutageEnvironmentId)
   }
+  const noticeReveal = useCalmStatusReveal(notice.speaks, false, notice.since)
+  // Why: the notice outlives the outage by its hold; this surface's panes wait it out too.
+  const noticeShowingFor = noticeReveal.visible ? noticeEnvironmentId : null
   if (showSshReconnectOverlay) {
     return null
   }
@@ -66,8 +70,7 @@ export function TerminalPaneRecoveryPortals({
         <RemoteServerOutageNotice
           key={noticeEnvironmentId}
           environmentId={noticeEnvironmentId}
-          speaking={notice.speaks}
-          since={notice.since}
+          reveal={noticeReveal}
         />
       ) : null}
       {managedPanes.map((pane) => {
@@ -85,7 +88,10 @@ export function TerminalPaneRecoveryPortals({
             recovery={recoveryState && recoveryState.reason !== 'ownership' ? recoveryState : null}
             environmentId={paneEnvironmentId}
             heldByServer={
-              notice.spoken && !isolated && paneEnvironmentId === retryingOutageEnvironmentId
+              !isolated &&
+              paneEnvironmentId !== null &&
+              ((notice.spoken && paneEnvironmentId === retryingOutageEnvironmentId) ||
+                paneEnvironmentId === noticeShowingFor)
             }
             onReconnect={createPaneRecoveryReconnect(
               () => paneTransportsRef.current.get(pane.id),
