@@ -3,7 +3,7 @@ import type { VisiblePtyRecoveryState } from './terminal-remote-runtime-recovery
 
 /** Why recovery is happening, as far as this client has evidence for it. */
 export type RemoteRuntimeRecoveryCause =
-  | 'network'
+  | 'connection-lost'
   | 'server-restarting'
   | 'stream-stalled'
   | 'session-ended'
@@ -24,7 +24,7 @@ export function paneRecoveryCause(
   if (state.cause === 'stream-ended') {
     return 'session-ended'
   }
-  return 'network'
+  return 'connection-lost'
 }
 
 export function remoteRuntimeRecoveryCopy(
@@ -33,17 +33,17 @@ export function remoteRuntimeRecoveryCopy(
 ): RemoteRuntimeRecoveryCopy {
   const server = { server: serverName }
   switch (cause) {
-    case 'network':
+    case 'connection-lost':
       return {
         retrying: true,
         title: translate(
-          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.networkTitle',
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.connectionLostTitle',
           'Reconnecting to {{server}}',
           server
         ),
         body: translate(
-          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.networkBody',
-          'The network connection dropped. Orca is retrying automatically, and terminals resume when it returns.'
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.connectionLostBody',
+          'The connection to the server dropped. Orca is retrying automatically, and terminals resume when it returns.'
         )
       }
     case 'server-restarting':
@@ -81,7 +81,7 @@ export function remoteRuntimeRecoveryCopy(
         ),
         body: translate(
           'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.sessionEndedBody',
-          "{{server}} closed this terminal's stream. Orca is reattaching it; nothing on the host was stopped.",
+          "{{server}} closed this terminal's stream. Orca is reattaching it automatically.",
           server
         )
       }
@@ -95,7 +95,7 @@ export function remoteRuntimeRecoveryCopy(
         ),
         body: translate(
           'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.waitingBody',
-          'Orca reattaches this terminal when the server answers. Reconnect to try now.'
+          'Orca reattaches this terminal when the server offers it again or the connection changes. Reconnect to try now.'
         )
       }
   }

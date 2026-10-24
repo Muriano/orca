@@ -2,13 +2,19 @@ import { useEffect, useId, useSyncExternalStore } from 'react'
 import { CALM_STATUS_HEALTHY_HOLD_MS } from '../../../../shared/calm-status-reveal'
 
 /**
- * Which visible terminal surface speaks for a server whose connection dropped. The first claimant
- * shows the one notice; every other surface on that server stays quiet. The outage start outlives
- * a hand-off between surfaces (a tab switch), so the notice neither re-waits nor resets its clock.
+ * Which visible terminal surface speaks for a server whose connection dropped. The first visible
+ * claimant shows the one notice; every other surface on that server stays quiet. Every mounted
+ * surface on that server observes the outage, hidden or not, so its start survives a tab switch
+ * and the notice neither re-waits nor resets its clock.
  */
-type ServerClaims = { claimants: string[]; since: number; releaseTimer: number | null }
+type ServerOutage = {
+  observers: Set<string>
+  speakers: string[]
+  since: number
+  releaseTimer: number | null
+}
 
-const claimsByEnvironment = new Map<string, ServerClaims>()
+const outages = new Map<string, ServerOutage>()
 const listeners = new Set<() => void>()
 
 function notify(): void {
@@ -22,38 +28,50 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
-function claim(environmentId: string, claimant: string): void {
-  const existing = claimsByEnvironment.get(environmentId)
-  if (existing) {
-    if (existing.releaseTimer !== null) {
-      window.clearTimeout(existing.releaseTimer)
-      existing.releaseTimer = null
-    }
-    existing.claimants = [...existing.claimants, claimant]
-  } else {
-    claimsByEnvironment.set(environmentId, {
-      claimants: [claimant],
-      since: Date.now(),
-      releaseTimer: null
-    })
+function observe(environmentId: string, observer: string): () => void {
+  let outage = outages.get(environmentId)
+  if (!outage) {
+    outage = { observers: new Set(), speakers: [], since: Date.now(), releaseTimer: null }
+    outages.set(environmentId, outage)
   }
+  if (outage.releaseTimer !== null) {
+    window.clearTimeout(outage.releaseTimer)
+    outage.releaseTimer = null
+  }
+  outage.observers.add(observer)
   notify()
-}
-
-function release(environmentId: string, claimant: string): void {
-  const existing = claimsByEnvironment.get(environmentId)
-  if (!existing) {
-    return
-  }
-  existing.claimants = existing.claimants.filter((entry) => entry !== claimant)
-  if (existing.claimants.length === 0 && existing.releaseTimer === null) {
-    existing.releaseTimer = window.setTimeout(() => {
-      if (claimsByEnvironment.get(environmentId)?.claimants.length === 0) {
-        claimsByEnvironment.delete(environmentId)
+  return () => {
+    const current = outages.get(environmentId)
+    if (!current) {
+      return
+    }
+    current.observers.delete(observer)
+    if (current.observers.size > 0 || current.releaseTimer !== null) {
+      return
+    }
+    // Why held briefly: a tab switch unmounts one observer before the next mounts.
+    current.releaseTimer = window.setTimeout(() => {
+      if (outages.get(environmentId)?.observers.size === 0) {
+        outages.delete(environmentId)
+        notify()
       }
     }, CALM_STATUS_HEALTHY_HOLD_MS)
   }
-  notify()
+}
+
+function speak(environmentId: string, speaker: string): () => void {
+  const outage = outages.get(environmentId)
+  if (outage) {
+    outage.speakers = [...outage.speakers, speaker]
+    notify()
+  }
+  return () => {
+    const current = outages.get(environmentId)
+    if (current) {
+      current.speakers = current.speakers.filter((entry) => entry !== speaker)
+      notify()
+    }
+  }
 }
 
 export type RemoteServerNoticeClaim = {
@@ -61,29 +79,34 @@ export type RemoteServerNoticeClaim = {
   speaks: boolean
   /** Some visible surface shows it, so panes on this server may stay quiet. */
   spoken: boolean
-  /** When the outage was first seen by any surface. */
+  /** When any mounted surface first saw the outage. */
   since: number | null
 }
 
 const NO_CLAIM: RemoteServerNoticeClaim = { speaks: false, spoken: false, since: null }
 
-export function useRemoteServerNoticeClaim(environmentId: string | null): RemoteServerNoticeClaim {
-  const claimant = useId()
-  useEffect(() => {
-    if (environmentId === null) {
-      return
-    }
-    claim(environmentId, claimant)
-    return () => release(environmentId, claimant)
-  }, [claimant, environmentId])
+export function useRemoteServerNoticeClaim(
+  environmentId: string | null,
+  canSpeak: boolean
+): RemoteServerNoticeClaim {
+  const surface = useId()
+  useEffect(
+    () => (environmentId === null ? undefined : observe(environmentId, surface)),
+    [environmentId, surface]
+  )
+  // Why after observe: effects run in order, so the outage record exists to speak into.
+  useEffect(
+    () => (environmentId === null || !canSpeak ? undefined : speak(environmentId, surface)),
+    [canSpeak, environmentId, surface]
+  )
   const leader = useSyncExternalStore(subscribe, () =>
-    environmentId === null ? null : (claimsByEnvironment.get(environmentId)?.claimants[0] ?? null)
+    environmentId === null ? null : (outages.get(environmentId)?.speakers[0] ?? null)
   )
   const since = useSyncExternalStore(subscribe, () =>
-    environmentId === null ? null : (claimsByEnvironment.get(environmentId)?.since ?? null)
+    environmentId === null ? null : (outages.get(environmentId)?.since ?? null)
   )
-  if (environmentId === null || leader === null) {
+  if (environmentId === null) {
     return NO_CLAIM
   }
-  return { speaks: leader === claimant, spoken: true, since }
+  return { speaks: leader === surface, spoken: leader !== null, since }
 }

@@ -41,7 +41,7 @@ export function RemoteServerOutageNotice({
       title={copy.title}
       body={copy.body}
       downSince={reveal.downSince}
-      tailscaleHost={cause === 'network' ? tailscaleHost : null}
+      tailscaleHost={cause === 'connection-lost' ? tailscaleHost : null}
     />
   )
 }

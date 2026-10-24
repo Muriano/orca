@@ -13,14 +13,21 @@ import type { ConnectionState } from './types'
  */
 export function stepCalmConnectionState(
   previous: CalmStatusReveal,
-  input: { state: ConnectionState; lastConnectedAt: number | null; now: number }
+  input: {
+    state: ConnectionState
+    lastConnectedAt: number | null
+    now: number
+    /** On mount the drop already happened unseen; it began no earlier than the last connect. */
+    since?: number | null
+  }
 ): { next: CalmStatusReveal; presented: ConnectionState; recheckInMs: number | null } {
   // Why 'disconnected' waits too: an app suspend publishes it and the resume redials at once.
   const healing = input.state !== 'auth-failed' && input.lastConnectedAt !== null
   const step = stepCalmStatusReveal(previous, {
     down: input.state !== 'connected',
     immediate: !healing,
-    now: input.now
+    now: input.now,
+    since: input.since
   })
   return {
     next: step.next,
@@ -36,16 +43,23 @@ export function useCalmConnectionState(
   const revealRef = useRef<CalmStatusReveal>(CALM_STATUS_IDLE)
   const [presented, setPresented] = useState<ConnectionState>(
     () =>
-      stepCalmConnectionState(CALM_STATUS_IDLE, { state, lastConnectedAt, now: Date.now() })
-        .presented
+      stepCalmConnectionState(CALM_STATUS_IDLE, {
+        state,
+        lastConnectedAt,
+        now: Date.now(),
+        since: lastConnectedAt
+      }).presented
   )
   const [wake, setWake] = useState(0)
+  const observedRef = useRef(false)
   useEffect(() => {
     const step = stepCalmConnectionState(revealRef.current, {
       state,
       lastConnectedAt,
-      now: Date.now()
+      now: Date.now(),
+      since: observedRef.current ? null : lastConnectedAt
     })
+    observedRef.current = true
     revealRef.current = step.next
     setPresented(step.presented)
     if (step.recheckInMs === null) {

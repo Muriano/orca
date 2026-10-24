@@ -1,3 +1,4 @@
+import { useLayoutEffect, useState } from 'react'
 import { translate } from '@/i18n/i18n'
 import { useCalmStatusReveal } from '@/hooks/use-calm-status-reveal'
 import type { VisiblePtyRecoveryState } from './terminal-remote-runtime-recovery-ui-state'
@@ -93,7 +94,9 @@ export function TerminalRemoteRuntimeReconnectBanner({
       title={copy.title}
       body={copy.body}
       downSince={downSince}
-      tailscaleHost={cause === 'network' || cause === 'waiting-for-server' ? tailscaleHost : null}
+      tailscaleHost={
+        cause === 'connection-lost' || cause === 'waiting-for-server' ? tailscaleHost : null
+      }
       action={copy.retrying ? null : reconnectAction(onReconnect)}
     />
   )
@@ -101,14 +104,16 @@ export function TerminalRemoteRuntimeReconnectBanner({
 
 /**
  * A pane's recovery, said only once it outlasts a clean reconnect; anything needing action shows
- * at once. `heldByServer`: the server's own notice covers this drop, and control-ready revives
- * the pane, so it stays quiet.
+ * at once. Stays mounted with no recovery so its minimum time and hold can run out.
+ * `heldByServer`: the server's own notice covers this drop, so the pane stays quiet.
  */
 export function CalmRemoteRuntimeReconnectBanner({
+  recovery,
   heldByServer,
   environmentId,
   ...props
-}: Omit<BannerProps, 'serverName' | 'tailscaleHost' | 'downSince'> & {
+}: Omit<BannerProps, 'recovery' | 'serverName' | 'tailscaleHost' | 'downSince'> & {
+  recovery: BannerProps['recovery'] | null
   heldByServer: boolean
   environmentId: string | null
 }): React.JSX.Element | null {
@@ -118,18 +123,30 @@ export function CalmRemoteRuntimeReconnectBanner({
   const tailscaleHost = useAppStore((state) =>
     environmentId ? selectRuntimeServerTailscaleHost(state, environmentId) : null
   )
+  const [lastRecovery, setLastRecovery] = useState(recovery)
+  if (recovery && recovery !== lastRecovery) {
+    setLastRecovery(recovery)
+  }
+  const active = recovery !== null
+  const [recoveringSince, setRecoveringSince] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    setRecoveringSince(active ? Date.now() : null)
+  }, [active])
   const needsAction =
-    props.recovery.phase === 'disconnected' ||
-    Boolean(props.wslHostUnavailable) ||
-    Boolean(props.pairingRefused)
-  // Why not down while held: once the server answers, the pane earns its own full delay to resubscribe.
-  const reveal = useCalmStatusReveal(!heldByServer, needsAction)
-  if (heldByServer || !reveal.visible) {
+    active &&
+    (recovery.phase === 'disconnected' ||
+      Boolean(props.wslHostUnavailable) ||
+      Boolean(props.pairingRefused))
+  // Why the pane's own start: a pane still down when the server notice ends speaks at once.
+  const reveal = useCalmStatusReveal(active && !heldByServer, needsAction, recoveringSince)
+  const shown = recovery ?? lastRecovery
+  if (heldByServer || !reveal.visible || !shown) {
     return null
   }
   return (
     <TerminalRemoteRuntimeReconnectBanner
       {...props}
+      recovery={shown}
       serverName={serverName}
       tailscaleHost={tailscaleHost}
       downSince={reveal.downSince}

@@ -8,7 +8,10 @@ import {
   CalmRemoteRuntimeReconnectBanner,
   TerminalRemoteRuntimeReconnectBanner
 } from './TerminalRemoteRuntimeReconnectBanner'
-import { CALM_STATUS_REVEAL_DELAY_MS } from '../../../../shared/calm-status-reveal'
+import {
+  CALM_STATUS_MIN_VISIBLE_MS,
+  CALM_STATUS_REVEAL_DELAY_MS
+} from '../../../../shared/calm-status-reveal'
 
 vi.mock('@/i18n/i18n', () => ({
   translate: (_key: string, fallback: string, options?: Record<string, string>) =>
@@ -139,6 +142,41 @@ describe('CalmRemoteRuntimeReconnectBanner', () => {
     expect(screen.getByText('Remote runtime disconnected')).toBeInTheDocument()
   })
 
+  it('keeps a manual Reconnect from hiding the banner it was clicked on', () => {
+    vi.useFakeTimers()
+    const { rerender } = render(
+      <CalmRemoteRuntimeReconnectBanner
+        recovery={{ phase: 'disconnected' }}
+        environmentId="env-1"
+        heldByServer={false}
+        onReconnect={vi.fn()}
+      />
+    )
+    rerender(
+      <CalmRemoteRuntimeReconnectBanner
+        recovery={{ phase: 'recovering', cause: 'connection' }}
+        environmentId="env-1"
+        heldByServer={false}
+        onReconnect={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Reconnecting to Desk')).toBeInTheDocument()
+  })
+
+  it('holds a banner that just appeared long enough to read, then lets it go', () => {
+    vi.useFakeTimers()
+    const props = { environmentId: 'env-1', heldByServer: false, onReconnect: vi.fn() }
+    const { rerender } = render(
+      <CalmRemoteRuntimeReconnectBanner {...props} recovery={{ phase: 'backoff' }} />
+    )
+    act(() => vi.advanceTimersByTime(CALM_STATUS_REVEAL_DELAY_MS + 100))
+    rerender(<CalmRemoteRuntimeReconnectBanner {...props} recovery={null} />)
+    expect(screen.getByRole('status')).toBeInTheDocument()
+
+    act(() => vi.advanceTimersByTime(CALM_STATUS_MIN_VISIBLE_MS))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('leaves a server-wide drop to the server notice', () => {
     vi.useFakeTimers()
     render(
@@ -151,5 +189,19 @@ describe('CalmRemoteRuntimeReconnectBanner', () => {
     )
     act(() => vi.advanceTimersByTime(CALM_STATUS_REVEAL_DELAY_MS * 2))
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('speaks at once for a pane still down when the server notice ends', () => {
+    vi.useFakeTimers()
+    const props = { environmentId: 'env-1', onReconnect: vi.fn() }
+    const recovery = { phase: 'backoff' as const, cause: 'stream-stalled' as const }
+    const { rerender } = render(
+      <CalmRemoteRuntimeReconnectBanner {...props} recovery={recovery} heldByServer />
+    )
+    act(() => vi.advanceTimersByTime(CALM_STATUS_REVEAL_DELAY_MS * 2))
+    rerender(
+      <CalmRemoteRuntimeReconnectBanner {...props} recovery={recovery} heldByServer={false} />
+    )
+    expect(screen.getByText('Terminal stopped responding')).toBeInTheDocument()
   })
 })

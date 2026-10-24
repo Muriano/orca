@@ -3525,19 +3525,19 @@
             "disconnectedTitle": "Remote runtime disconnected",
             "disconnectedBody": "Se detuvieron los reintentos automáticos. Vuelva a conectarse para reanudar esta sesión de terminal.",
             "reconnectButton": "Reconectar",
-            "networkTitle": "Reconectando con {{server}}",
-            "networkBody": "Se perdió la conexión de red. Orca está reintentando automáticamente y los terminales se reanudarán cuando vuelva.",
             "serverRestartingTitle": "{{server}} se está reiniciando",
             "serverRestartingBody": "Orca se reconectará cuando el servidor vuelva, y los terminales se reanudarán entonces.",
             "streamStalledTitle": "El terminal dejó de responder",
             "streamStalledBody": "{{server}} dejó de enviar la salida de este terminal. Orca lo está reconectando automáticamente.",
             "sessionEndedTitle": "Reconectando el terminal",
-            "sessionEndedBody": "{{server}} cerró el flujo de este terminal. Orca lo está reconectando; no se detuvo nada en el host.",
+            "sessionEndedBody": "{{server}} cerró el flujo de este terminal. Orca lo está reconectando automáticamente.",
             "waitingTitle": "Esperando a {{server}}",
-            "waitingBody": "Orca reconectará este terminal cuando el servidor responda. Pulsa Reconectar para intentarlo ahora.",
+            "waitingBody": "Orca reconectará este terminal cuando el servidor vuelva a ofrecerlo o cambie la conexión. Pulsa Reconectar para intentarlo ahora.",
             "downFor": "Sin conexión desde hace {{duration}}",
             "tailscaleHint": "Comprueba la ruta de Tailscale:",
-            "fallbackServerName": "el servidor"
+            "fallbackServerName": "el servidor",
+            "connectionLostTitle": "Reconectando con {{server}}",
+            "connectionLostBody": "Se perdió la conexión con el servidor. Orca está reintentando automáticamente y los terminales se reanudarán cuando vuelva."
           },
           "TerminalRestoringPlaceholder": {
             "restoring": "Restaurando terminal…"

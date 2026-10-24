@@ -5,7 +5,6 @@ import { tailscaleHostOfEndpoint } from '../../../../shared/remote-runtime/remot
 import { selectExecutionHostDisplayLabel } from '@/lib/execution-host-display-label'
 import { workspaceOwnerHostId } from '@/lib/workspace-row-owner-host'
 import { runtimeHostConnectionStateForEntry } from '@/runtime/runtime-host-connection-state'
-import { runtimeHostOutageKind } from '@/runtime/runtime-host-outage-kind'
 import type { RemoteRuntimeRecoveryCause } from './remote-runtime-recovery-copy'
 
 /**
@@ -20,10 +19,10 @@ export function selectRetryingOutageEnvironmentId(
   if (!environmentId) {
     return null
   }
+  // Why only 'reconnecting': it is the transport-down verdict. 'checking' and a failed status
+  // probe over a live socket are not a dropped connection, and must not be announced as one.
   const entry = state.runtimeStatusByEnvironmentId.get(environmentId)
-  return runtimeHostOutageKind(runtimeHostConnectionStateForEntry(entry)) === 'reconnecting'
-    ? environmentId
-    : null
+  return runtimeHostConnectionStateForEntry(entry) === 'reconnecting' ? environmentId : null
 }
 
 export function selectWorkspaceRuntimeEnvironmentId(
@@ -37,11 +36,11 @@ export function selectWorkspaceRuntimeEnvironmentId(
 export function selectRemoteServerOutageCause(
   state: AppState,
   environmentId: string
-): Extract<RemoteRuntimeRecoveryCause, 'network' | 'server-restarting'> {
+): Extract<RemoteRuntimeRecoveryCause, 'connection-lost' | 'server-restarting'> {
   // Why only the updater: a server stop terminates sockets without a close code, so its own restart is the only evidence.
   return state.remoteServerUpdates.get(environmentId)?.phase === 'restarting'
     ? 'server-restarting'
-    : 'network'
+    : 'connection-lost'
 }
 
 export function selectRuntimeServerName(state: AppState, environmentId: string): string {

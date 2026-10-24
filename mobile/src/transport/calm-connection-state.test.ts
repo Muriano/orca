@@ -42,4 +42,14 @@ describe('stepCalmConnectionState', () => {
     expect(present(null, [{ at: 0, state: 'connecting' }])).toEqual(['connecting'])
     expect(present(0, [{ at: 1_000, state: 'auth-failed' }])).toEqual(['auth-failed'])
   })
+
+  it('shows a drop already under way when the screen opens long after the last connect', () => {
+    const step = stepCalmConnectionState(CALM_STATUS_IDLE, {
+      state: 'reconnecting',
+      lastConnectedAt: 0,
+      now: 10 * 60_000,
+      since: 0
+    })
+    expect(step.presented).toBe('reconnecting')
+  })
 })
