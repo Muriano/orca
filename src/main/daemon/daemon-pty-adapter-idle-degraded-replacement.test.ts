@@ -33,7 +33,6 @@ describe('DaemonPtyAdapter.replaceIdleDaemonForFreshSpawns', () => {
   function replacingRespawn() {
     return vi.fn(async () => {
       await server.shutdown()
-      rmSync(socketPath, { force: true })
       respawnServer = new DaemonServer({
         socketPath,
         tokenPath,
