@@ -3,8 +3,12 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CALM_STATUS_REVEAL_DELAY_MS } from '../../../../shared/calm-status-reveal'
+import {
+  CALM_STATUS_MIN_VISIBLE_MS,
+  CALM_STATUS_REVEAL_DELAY_MS
+} from '../../../../shared/calm-status-reveal'
 import type { TerminalPaneController } from './use-terminal-pane-controller'
+import { resetRemoteServerNoticeClaimsForTests } from './remote-server-notice-claims'
 
 const outage = vi.hoisted((): { environmentId: string | null } => ({ environmentId: 'env-1' }))
 
@@ -29,6 +33,8 @@ vi.mock('./remote-server-outage', () => ({
 afterEach(() => {
   outage.environmentId = 'env-1'
   cleanup()
+  resetRemoteServerNoticeClaimsForTests()
+  document.body.innerHTML = ''
   vi.useRealTimers()
 })
 
@@ -64,21 +70,34 @@ describe('TerminalPaneRecoveryPortals', () => {
     ).toHaveLength(0)
   })
 
-  it('keeps panes quiet while the server notice holds after the server answers', async () => {
+  it('keeps every surface on the server quiet through the notice hold, then lets a still-down pane speak', async () => {
     vi.useFakeTimers()
     const { TerminalPaneRecoveryPortals } = await import('./TerminalPaneRecoveryPortals')
-    const panes = [document.createElement('div')]
-    panes.forEach((pane) => document.body.appendChild(pane))
-    const controller = controllerFor(panes)
-    const view = render(<TerminalPaneRecoveryPortals controller={controller} />)
+    const leftPane = document.createElement('div')
+    const rightPane = document.createElement('div')
+    document.body.append(leftPane, rightPane)
+    const left = controllerFor([leftPane])
+    const right = controllerFor([rightPane])
+    const surfaces = (l: TerminalPaneController, r: TerminalPaneController) => (
+      <>
+        <TerminalPaneRecoveryPortals controller={l} />
+        <TerminalPaneRecoveryPortals controller={r} />
+      </>
+    )
+    const view = render(surfaces(left, right))
     act(() => vi.advanceTimersByTime(CALM_STATUS_REVEAL_DELAY_MS * 2))
+    const notices = () => view.container.querySelectorAll('[data-remote-server-outage-notice]')
+    const paneBanners = () =>
+      document.querySelectorAll('[data-terminal-remote-runtime-reconnect-banner]')
+    expect(notices()).toHaveLength(1)
 
     outage.environmentId = null
-    view.rerender(<TerminalPaneRecoveryPortals controller={{ ...controller }} />)
+    view.rerender(surfaces({ ...left }, { ...right }))
+    expect(notices()).toHaveLength(1)
+    expect(paneBanners()).toHaveLength(0)
 
-    expect(view.container.querySelectorAll('[data-remote-server-outage-notice]')).toHaveLength(1)
-    expect(
-      document.querySelectorAll('[data-terminal-remote-runtime-reconnect-banner]')
-    ).toHaveLength(0)
+    act(() => vi.advanceTimersByTime(CALM_STATUS_MIN_VISIBLE_MS))
+    expect(notices()).toHaveLength(0)
+    expect(paneBanners()).toHaveLength(2)
   })
 })

@@ -8,7 +8,10 @@ import {
   useRetryingOutageEnvironmentId,
   useWorkspaceRuntimeEnvironmentId
 } from './remote-server-outage'
-import { useRemoteServerNoticeClaim } from './remote-server-notice-claims'
+import {
+  usePublishRemoteServerNoticeShowing,
+  useRemoteServerNoticeClaim
+} from './remote-server-notice-claims'
 import { RemoteServerOutageNotice } from './RemoteServerOutageNotice'
 import { useCalmStatusReveal } from '@/hooks/use-calm-status-reveal'
 import type { TerminalPaneController } from './use-terminal-pane-controller'
@@ -53,14 +56,14 @@ export function TerminalPaneRecoveryPortals({
     !showSshReconnectOverlay &&
     !wslHostUnavailable &&
     pairingRefusedEnvironmentId === null
-  const notice = useRemoteServerNoticeClaim(retryingOutageEnvironmentId, canSpeak)
+  const serverDown = retryingOutageEnvironmentId !== null
+  const notice = useRemoteServerNoticeClaim(ownerEnvironmentId, serverDown, canSpeak)
   const [noticeEnvironmentId, setNoticeEnvironmentId] = useState<string | null>(null)
-  if (notice.speaks && retryingOutageEnvironmentId !== noticeEnvironmentId) {
-    setNoticeEnvironmentId(retryingOutageEnvironmentId)
+  if (notice.speaks && ownerEnvironmentId !== noticeEnvironmentId) {
+    setNoticeEnvironmentId(ownerEnvironmentId)
   }
   const noticeReveal = useCalmStatusReveal(notice.speaks, false, notice.since)
-  // Why: the notice outlives the outage by its hold; this surface's panes wait it out too.
-  const noticeShowingFor = noticeReveal.visible ? noticeEnvironmentId : null
+  usePublishRemoteServerNoticeShowing(noticeEnvironmentId, noticeReveal.visible)
   if (showSshReconnectOverlay) {
     return null
   }
@@ -87,11 +90,14 @@ export function TerminalPaneRecoveryPortals({
             key={`remote-runtime-reconnect-${pane.id}`}
             recovery={recoveryState && recoveryState.reason !== 'ownership' ? recoveryState : null}
             environmentId={paneEnvironmentId}
+            // Why the action exception after the outage: a notice on its hold no longer covers a stopped pane.
             heldByServer={
               !isolated &&
-              paneEnvironmentId !== null &&
-              ((notice.spoken && paneEnvironmentId === retryingOutageEnvironmentId) ||
-                paneEnvironmentId === noticeShowingFor)
+              !wslHostUnavailable &&
+              pairingRefusedEnvironmentId === null &&
+              notice.quiet &&
+              paneEnvironmentId === ownerEnvironmentId &&
+              (serverDown || recoveryState?.phase !== 'disconnected')
             }
             onReconnect={createPaneRecoveryReconnect(
               () => paneTransportsRef.current.get(pane.id),

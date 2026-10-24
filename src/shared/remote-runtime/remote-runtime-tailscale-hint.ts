@@ -24,6 +24,8 @@ const TAILSCALE_CGNAT_RE = /^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./
 // Tailscale also assigns each node an IPv6 address from the fd7a:115c:a1e0::/48 ULA
 // block, and pairing endpoints can carry an IPv6 literal (see resolvePairingEndpoint).
 const TAILSCALE_IPV6_RE = /^fd7a:115c:a1e0:/i
+const SAFE_HOST_RE =
+  /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*|[0-9a-f:]+)$/i
 
 function extractHost(endpoint: string): string | null {
   let host: string | null
@@ -45,7 +47,8 @@ function extractHost(endpoint: string): string | null {
 /** The endpoint's host when it is a Tailscale address (what `tailscale ping` takes); else null. */
 export function tailscaleHostOfEndpoint(endpoint: string | null | undefined): string | null {
   const host = endpoint ? extractHost(endpoint) : null
-  if (!host) {
+  // Why strict: the host is pasted into a shell, so only DNS-label or IP-literal characters pass.
+  if (!host || !SAFE_HOST_RE.test(host)) {
     return null
   }
   return TAILSCALE_MAGIC_DNS_SUFFIX_RE.test(host) ||

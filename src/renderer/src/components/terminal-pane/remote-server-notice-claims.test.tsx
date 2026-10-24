@@ -3,6 +3,7 @@
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  resetRemoteServerNoticeClaimsForTests,
   useRemoteServerNoticeClaim,
   type RemoteServerNoticeClaim
 } from './remote-server-notice-claims'
@@ -18,12 +19,13 @@ function Surface({
   environmentId: string | null
   visible?: boolean
 }) {
-  seen.set(name, useRemoteServerNoticeClaim(environmentId, visible))
+  seen.set(name, useRemoteServerNoticeClaim(environmentId, environmentId !== null, visible))
   return null
 }
 
 afterEach(() => {
   cleanup()
+  resetRemoteServerNoticeClaimsForTests()
   seen.clear()
   vi.useRealTimers()
 })
@@ -39,10 +41,10 @@ describe('useRemoteServerNoticeClaim', () => {
       </>
     )
 
-    expect(seen.get('hidden')).toMatchObject({ speaks: false, spoken: true })
-    expect(seen.get('left')).toMatchObject({ speaks: true, spoken: true })
-    expect(seen.get('right')).toMatchObject({ speaks: false, spoken: true })
-    expect(seen.get('local')).toMatchObject({ speaks: false, spoken: false })
+    expect(seen.get('hidden')).toMatchObject({ speaks: false, quiet: true })
+    expect(seen.get('left')).toMatchObject({ speaks: true, quiet: true })
+    expect(seen.get('right')).toMatchObject({ speaks: false, quiet: true })
+    expect(seen.get('local')).toMatchObject({ speaks: false, quiet: false })
   })
 
   it('keeps the outage start from a hidden tab when another tab becomes the speaker', () => {
@@ -54,7 +56,7 @@ describe('useRemoteServerNoticeClaim', () => {
         <Surface name="front" environmentId="env-b" visible={false} />
       </>
     )
-    expect(seen.get('front')).toMatchObject({ spoken: false, since: 1_000 })
+    expect(seen.get('front')).toMatchObject({ quiet: false, since: 1_000 })
     vi.setSystemTime(9_000)
 
     act(() =>

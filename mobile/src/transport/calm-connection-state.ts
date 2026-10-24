@@ -64,6 +64,7 @@ export function useCalmConnectionState(
       state,
       lastConnectedAt,
       now: Date.now(),
+      // Why the last connect: the drop time is unseen on mount; erring early shows a real outage at once.
       since: observedRef.current ? null : lastConnectedAt,
       shown: shownRef.current
     })
