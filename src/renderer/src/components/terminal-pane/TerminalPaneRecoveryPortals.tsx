@@ -90,14 +90,13 @@ export function TerminalPaneRecoveryPortals({
             key={`remote-runtime-reconnect-${pane.id}`}
             recovery={recoveryState && recoveryState.reason !== 'ownership' ? recoveryState : null}
             environmentId={paneEnvironmentId}
-            // Why the action exception after the outage: a notice on its hold no longer covers a stopped pane.
+            // Why stopped panes too: a card flashing over the notice's hold is the overlap this avoids.
             heldByServer={
               !isolated &&
               !wslHostUnavailable &&
               pairingRefusedEnvironmentId === null &&
               notice.quiet &&
-              paneEnvironmentId === ownerEnvironmentId &&
-              (serverDown || recoveryState?.phase !== 'disconnected')
+              paneEnvironmentId === ownerEnvironmentId
             }
             onReconnect={createPaneRecoveryReconnect(
               () => paneTransportsRef.current.get(pane.id),
