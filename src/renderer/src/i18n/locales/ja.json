@@ -3522,7 +3522,8 @@
             "tailscaleHint": "Tailscale の経路を確認:",
             "fallbackServerName": "サーバー",
             "connectionLostTitle": "{{server}} に再接続しています",
-            "connectionLostBody": "サーバーとの接続が切断されました。Orca が自動的に再試行しており、接続が戻るとターミナルは再開します。"
+            "connectionLostBody": "サーバーとの接続が切断されました。Orca が自動的に再試行しており、接続が戻るとターミナルは再開します。",
+            "reattachingBody": "Orca がこのターミナルを {{server}} に自動的に再接続しています。"
           },
           "TerminalLinkActionPopover": {
             "openLink": "リンクを開く",

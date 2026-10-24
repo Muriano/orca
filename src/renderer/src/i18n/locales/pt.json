@@ -15663,7 +15663,8 @@
             "tailscaleHint": "Verifique o caminho do Tailscale:",
             "fallbackServerName": "o servidor",
             "connectionLostTitle": "Reconectando a {{server}}",
-            "connectionLostBody": "A conexão com o servidor caiu. O Orca está tentando novamente de forma automática, e os terminais serão retomados quando ela voltar."
+            "connectionLostBody": "A conexão com o servidor caiu. O Orca está tentando novamente de forma automática, e os terminais serão retomados quando ela voltar.",
+            "reattachingBody": "O Orca está reconectando este terminal a {{server}} automaticamente."
           },
           "TerminalPane": {
             "ac112e9036": "Remover título",

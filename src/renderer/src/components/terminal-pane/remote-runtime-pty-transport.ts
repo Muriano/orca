@@ -3028,7 +3028,8 @@ export function createRemoteRuntimePtyTransport(
           if (!current) {
             return
           }
-          recoveryCause = stalled ? 'stream-stalled' : 'connection'
+          // Why no cause for a backoff: a capacity refusal arrives over a healthy connection.
+          recoveryCause = stalled ? 'stream-stalled' : retryWithBackoff ? null : 'connection'
           multiplexedStream = null
           multiplexedStreamHandle = null
           setAttachmentReady(false)

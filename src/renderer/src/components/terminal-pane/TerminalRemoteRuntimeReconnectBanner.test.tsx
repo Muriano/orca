@@ -54,6 +54,21 @@ describe('TerminalRemoteRuntimeReconnectBanner', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  it('stays neutral when nothing shows the connection dropped, such as a capacity refusal', () => {
+    render(
+      <TerminalRemoteRuntimeReconnectBanner
+        recovery={{ phase: 'backoff' }}
+        serverName="Desk"
+        tailscaleHost="100.101.102.103"
+        onReconnect={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Reattaching terminal')).toBeInTheDocument()
+    expect(screen.queryByText(/connection to the server dropped/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/tailscale ping/)).not.toBeInTheDocument()
+  })
+
   it('never claims a parked pane is retrying, and offers to try now', async () => {
     const onReconnect = vi.fn()
     const user = userEvent.setup()

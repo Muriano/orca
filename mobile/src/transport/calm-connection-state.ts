@@ -19,6 +19,8 @@ export function stepCalmConnectionState(
     now: number
     /** On mount the drop already happened unseen; it began no earlier than the last connect. */
     since?: number | null
+    /** What the header shows now; a drop on screen stays through its minimum time and hold. */
+    shown?: ConnectionState
   }
 ): { next: CalmStatusReveal; presented: ConnectionState; recheckInMs: number | null } {
   // Why 'disconnected' waits too: an app suspend publishes it and the resume redials at once.
@@ -31,7 +33,11 @@ export function stepCalmConnectionState(
   })
   return {
     next: step.next,
-    presented: step.visible || input.state === 'connected' ? input.state : 'connected',
+    presented: !step.visible
+      ? 'connected'
+      : input.state !== 'connected'
+        ? input.state
+        : (input.shown ?? 'connected'),
     recheckInMs: step.recheckInMs
   }
 }
@@ -52,15 +58,18 @@ export function useCalmConnectionState(
   )
   const [wake, setWake] = useState(0)
   const observedRef = useRef(false)
+  const shownRef = useRef(presented)
   useEffect(() => {
     const step = stepCalmConnectionState(revealRef.current, {
       state,
       lastConnectedAt,
       now: Date.now(),
-      since: observedRef.current ? null : lastConnectedAt
+      since: observedRef.current ? null : lastConnectedAt,
+      shown: shownRef.current
     })
     observedRef.current = true
     revealRef.current = step.next
+    shownRef.current = step.presented
     setPresented(step.presented)
     if (step.recheckInMs === null) {
       return

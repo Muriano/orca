@@ -52,4 +52,20 @@ describe('stepCalmConnectionState', () => {
     })
     expect(step.presented).toBe('reconnecting')
   })
+
+  it('keeps a drop that just appeared on screen through its minimum time', () => {
+    let reveal = CALM_STATUS_IDLE
+    let shown: ConnectionState = 'connected'
+    const presented = [
+      { at: 1_000, state: 'reconnecting' as const },
+      { at: 1_000 + CALM_STATUS_REVEAL_DELAY_MS, state: 'reconnecting' as const },
+      { at: 1_010 + CALM_STATUS_REVEAL_DELAY_MS, state: 'connected' as const }
+    ].map(({ at, state }) => {
+      const step = stepCalmConnectionState(reveal, { state, lastConnectedAt: 0, now: at, shown })
+      reveal = step.next
+      shown = step.presented
+      return step.presented
+    })
+    expect(presented).toEqual(['connected', 'reconnecting', 'reconnecting'])
+  })
 })

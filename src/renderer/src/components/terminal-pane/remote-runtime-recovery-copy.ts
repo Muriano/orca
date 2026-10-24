@@ -8,6 +8,7 @@ export type RemoteRuntimeRecoveryCause =
   | 'stream-stalled'
   | 'session-ended'
   | 'waiting-for-server'
+  | 'reattaching'
 
 export type RemoteRuntimeRecoveryCopy = { title: string; body: string; retrying: boolean }
 
@@ -24,7 +25,8 @@ export function paneRecoveryCause(
   if (state.cause === 'stream-ended') {
     return 'session-ended'
   }
-  return 'connection-lost'
+  // Why neutral without a cause: claiming a dropped connection needs evidence of one.
+  return state.cause === 'connection' ? 'connection-lost' : 'reattaching'
 }
 
 export function remoteRuntimeRecoveryCopy(
@@ -82,6 +84,19 @@ export function remoteRuntimeRecoveryCopy(
         body: translate(
           'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.sessionEndedBody',
           "{{server}} closed this terminal's stream. Orca is reattaching it automatically.",
+          server
+        )
+      }
+    case 'reattaching':
+      return {
+        retrying: true,
+        title: translate(
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.sessionEndedTitle',
+          'Reattaching terminal'
+        ),
+        body: translate(
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.reattachingBody',
+          'Orca is reattaching this terminal to {{server}} automatically.',
           server
         )
       }

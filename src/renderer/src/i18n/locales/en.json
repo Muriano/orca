@@ -3840,7 +3840,8 @@
             "tailscaleHint": "Check the Tailscale path:",
             "fallbackServerName": "the server",
             "connectionLostTitle": "Reconnecting to {{server}}",
-            "connectionLostBody": "The connection to the server dropped. Orca is retrying automatically, and terminals resume when it returns."
+            "connectionLostBody": "The connection to the server dropped. Orca is retrying automatically, and terminals resume when it returns.",
+            "reattachingBody": "Orca is reattaching this terminal to {{server}} automatically."
           },
           "TerminalQuickCommandsSubmenu": {
             "3ccc7981bb": "Host unavailable",

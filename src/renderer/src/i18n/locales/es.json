@@ -3537,7 +3537,8 @@
             "tailscaleHint": "Comprueba la ruta de Tailscale:",
             "fallbackServerName": "el servidor",
             "connectionLostTitle": "Reconectando con {{server}}",
-            "connectionLostBody": "Se perdió la conexión con el servidor. Orca está reintentando automáticamente y los terminales se reanudarán cuando vuelva."
+            "connectionLostBody": "Se perdió la conexión con el servidor. Orca está reintentando automáticamente y los terminales se reanudarán cuando vuelva.",
+            "reattachingBody": "Orca está reconectando automáticamente este terminal a {{server}}."
           },
           "TerminalRestoringPlaceholder": {
             "restoring": "Restaurando terminal…"

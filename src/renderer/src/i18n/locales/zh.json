@@ -3522,7 +3522,8 @@
             "tailscaleHint": "检查 Tailscale 链路：",
             "fallbackServerName": "服务器",
             "connectionLostTitle": "正在重新连接 {{server}}",
-            "connectionLostBody": "与服务器的连接已断开。Orca 正在自动重试，连接恢复后终端会继续运行。"
+            "connectionLostBody": "与服务器的连接已断开。Orca 正在自动重试，连接恢复后终端会继续运行。",
+            "reattachingBody": "Orca 正在自动将此终端重新连接到 {{server}}。"
           },
           "TerminalLinkActionPopover": {
             "openLink": "打开链接",

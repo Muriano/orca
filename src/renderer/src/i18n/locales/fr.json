@@ -3706,7 +3706,8 @@
             "tailscaleHint": "Vérifiez le chemin Tailscale :",
             "fallbackServerName": "le serveur",
             "connectionLostTitle": "Reconnexion à {{server}}",
-            "connectionLostBody": "La connexion au serveur a été perdue. Orca réessaie automatiquement et les terminaux reprendront à son retour."
+            "connectionLostBody": "La connexion au serveur a été perdue. Orca réessaie automatiquement et les terminaux reprendront à son retour.",
+            "reattachingBody": "Orca reconnecte automatiquement ce terminal à {{server}}."
           },
           "TerminalQuickCommandsSubmenu": {
             "3ccc7981bb": "Hôte indisponible",
