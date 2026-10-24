@@ -1,132 +1,138 @@
-import { useEffect, useState } from 'react'
-import { Loader2, ServerOff } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
-import type { PtyTransportRecoveryState } from './pty-transport-types'
+import { useCalmStatusReveal } from '@/hooks/use-calm-status-reveal'
+import type { VisiblePtyRecoveryState } from './terminal-remote-runtime-recovery-ui-state'
 import type { WslHostUnavailableReason } from './use-wsl-host-unavailable-reason'
 import { WslHostUnavailableBanner } from './WslHostUnavailableBanner'
+import { RemoteRuntimeRecoveryCard } from './RemoteRuntimeRecoveryCard'
+import {
+  fallbackRemoteServerName,
+  paneRecoveryCause,
+  remoteRuntimeRecoveryCopy
+} from './remote-runtime-recovery-copy'
+import { selectRuntimeServerName, selectRuntimeServerTailscaleHost } from './remote-server-outage'
+import { useAppStore } from '@/store'
 
-type VisibleRecoveryPhase = Extract<
-  PtyTransportRecoveryState['phase'],
-  'recovering' | 'backoff' | 'disconnected'
->
-
-// Why: a resubscribe that lands on its first backoff step plus an SSH round trip is
-// invisible to the user, so announcing it only flashes a banner.
-export const REMOTE_RUNTIME_RECOVERY_BANNER_DELAY_MS = 1_000
-
-/** Shows retrying recovery only once it outlasts the delay; anything needing action shows at once. */
-export function useRemoteRuntimeRecoveryBannerRevealed(needsAction: boolean): boolean {
-  const [revealed, setRevealed] = useState(needsAction)
-  if (needsAction && !revealed) {
-    setRevealed(true)
-  }
-  useEffect(() => {
-    if (revealed) {
-      return
-    }
-    const timer = window.setTimeout(
-      () => setRevealed(true),
-      REMOTE_RUNTIME_RECOVERY_BANNER_DELAY_MS
-    )
-    return () => window.clearTimeout(timer)
-  }, [revealed])
-  return revealed
-}
-
-export function TerminalRemoteRuntimeReconnectBanner({
-  phase,
-  onReconnect,
-  wslHostUnavailable = null,
-  pairingRefused = false
-}: {
-  phase: VisibleRecoveryPhase
+type BannerProps = {
+  recovery: Pick<VisiblePtyRecoveryState, 'phase' | 'cause' | 'waiting'>
+  serverName: string
   onReconnect: () => void
+  downSince?: number | null
+  tailscaleHost?: string | null
   /** The pane's WSL host cannot run: nothing is retrying, so say why instead. */
   wslHostUnavailable?: WslHostUnavailableReason | null
   /** The pane's managed server refuses this desktop and pairing again over SSH failed. */
   pairingRefused?: boolean
-}): React.JSX.Element {
+}
+
+function reconnectAction(onReconnect: () => void): { label: string; onClick: () => void } {
+  return {
+    label: translate(
+      'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.reconnectButton',
+      'Reconnect'
+    ),
+    onClick: onReconnect
+  }
+}
+
+export function TerminalRemoteRuntimeReconnectBanner({
+  recovery,
+  serverName,
+  onReconnect,
+  downSince = null,
+  tailscaleHost = null,
+  wslHostUnavailable = null,
+  pairingRefused = false
+}: BannerProps): React.JSX.Element {
   if (wslHostUnavailable) {
     return <WslHostUnavailableBanner reason={wslHostUnavailable} />
   }
-  const retrying = phase !== 'disconnected' && !pairingRefused
-
+  if (pairingRefused) {
+    return (
+      <RemoteRuntimeRecoveryCard
+        icon="stopped"
+        data={{ 'data-terminal-remote-runtime-reconnect-banner': 'pairing-refused' }}
+        title={translate(
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.pairingRefusedTitle',
+          'This host no longer accepts this computer'
+        )}
+        body={translate(
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.pairingRefusedBody',
+          "Orca couldn't pair with it again over SSH. Nothing on the host was stopped. Reconnect to try again."
+        )}
+        action={reconnectAction(onReconnect)}
+      />
+    )
+  }
+  if (recovery.phase === 'disconnected') {
+    return (
+      <RemoteRuntimeRecoveryCard
+        icon="stopped"
+        data={{ 'data-terminal-remote-runtime-reconnect-banner': 'disconnected' }}
+        title={translate(
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.disconnectedTitle',
+          'Remote runtime disconnected'
+        )}
+        body={translate(
+          'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.disconnectedBody',
+          'Automatic retries stopped. Reconnect to resume this terminal session.'
+        )}
+        tailscaleHost={tailscaleHost}
+        action={reconnectAction(onReconnect)}
+      />
+    )
+  }
+  const cause = paneRecoveryCause(recovery)
+  const copy = remoteRuntimeRecoveryCopy(cause, serverName)
   return (
-    <div
-      className="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex justify-center"
-      data-terminal-remote-runtime-reconnect-banner={pairingRefused ? 'pairing-refused' : phase}
-    >
-      <div
-        className="pointer-events-auto flex w-full max-w-xl items-center gap-3 rounded-md border border-border bg-card/95 px-3 py-3 text-card-foreground shadow-xs backdrop-blur-[1px]"
-        role="status"
-        aria-live="polite"
-      >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
-          {retrying ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <ServerOff className="size-4" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">
-            {pairingRefused
-              ? translate(
-                  'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.pairingRefusedTitle',
-                  'This host no longer accepts this computer'
-                )
-              : retrying
-                ? translate(
-                    'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.retryingTitle',
-                    'Reconnecting to remote runtime'
-                  )
-                : translate(
-                    'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.disconnectedTitle',
-                    'Remote runtime disconnected'
-                  )}
-          </div>
-          <div className="mt-0.5 text-xs leading-5 text-muted-foreground">
-            {pairingRefused
-              ? translate(
-                  'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.pairingRefusedBody',
-                  "Orca couldn't pair with it again over SSH. Nothing on the host was stopped. Reconnect to try again."
-                )
-              : retrying
-                ? translate(
-                    'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.retryingBody',
-                    'Orca is retrying automatically. This terminal will resume if the connection returns.'
-                  )
-                : translate(
-                    'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.disconnectedBody',
-                    'Automatic retries stopped. Reconnect to resume this terminal session.'
-                  )}
-          </div>
-        </div>
-        {!retrying ? (
-          <Button size="sm" onClick={onReconnect}>
-            {translate(
-              'auto.components.terminal.pane.TerminalRemoteRuntimeReconnectBanner.reconnectButton',
-              'Reconnect'
-            )}
-          </Button>
-        ) : null}
-      </div>
-    </div>
+    <RemoteRuntimeRecoveryCard
+      icon={copy.retrying ? 'retrying' : 'waiting'}
+      data={{
+        'data-terminal-remote-runtime-reconnect-banner': recovery.phase,
+        'data-terminal-remote-runtime-recovery-cause': cause
+      }}
+      title={copy.title}
+      body={copy.body}
+      downSince={downSince}
+      tailscaleHost={cause === 'network' || cause === 'waiting-for-server' ? tailscaleHost : null}
+      action={copy.retrying ? null : reconnectAction(onReconnect)}
+    />
   )
 }
 
-/** Keyed per pane: holds a retrying banner back until recovery outlasts the delay. */
-export function DelayedRemoteRuntimeReconnectBanner({
-  epoch,
+/**
+ * A pane's recovery, said only once it outlasts a clean reconnect; anything needing action shows
+ * at once. `heldByServer`: the server's own notice covers this drop, and control-ready revives
+ * the pane, so it stays quiet.
+ */
+export function CalmRemoteRuntimeReconnectBanner({
+  heldByServer,
+  environmentId,
   ...props
-}: Parameters<typeof TerminalRemoteRuntimeReconnectBanner>[0] & {
-  epoch: number
+}: Omit<BannerProps, 'serverName' | 'tailscaleHost' | 'downSince'> & {
+  heldByServer: boolean
+  environmentId: string | null
 }): React.JSX.Element | null {
-  const revealed = useRemoteRuntimeRecoveryBannerRevealed(
-    props.phase === 'disconnected' ||
-      Boolean(props.wslHostUnavailable) ||
-      Boolean(props.pairingRefused)
+  const serverName = useAppStore((state) =>
+    environmentId ? selectRuntimeServerName(state, environmentId) : fallbackRemoteServerName()
   )
-  return revealed ? <TerminalRemoteRuntimeReconnectBanner key={epoch} {...props} /> : null
+  const tailscaleHost = useAppStore((state) =>
+    environmentId ? selectRuntimeServerTailscaleHost(state, environmentId) : null
+  )
+  const needsAction =
+    props.recovery.phase === 'disconnected' ||
+    Boolean(props.wslHostUnavailable) ||
+    Boolean(props.pairingRefused)
+  // Why not down while held: once the server answers, the pane earns its own full delay to resubscribe.
+  const reveal = useCalmStatusReveal(!heldByServer, needsAction)
+  if (heldByServer || !reveal.visible) {
+    return null
+  }
+  return (
+    <TerminalRemoteRuntimeReconnectBanner
+      {...props}
+      serverName={serverName}
+      tailscaleHost={tailscaleHost}
+      downSince={reveal.downSince}
+    />
+  )
 }

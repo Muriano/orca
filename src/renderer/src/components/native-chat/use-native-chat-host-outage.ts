@@ -3,13 +3,14 @@ import { useAppStore } from '@/store'
 import { toRuntimeExecutionHostId } from '../../../../shared/execution-host'
 import { runtimeHostContactFromSnapshot } from '../../../../shared/runtime-host-contact'
 import { selectExecutionHostDisplayLabel } from '@/lib/execution-host-display-label'
+import { runtimeHostConnectionStateForEntry } from '@/runtime/runtime-host-connection-state'
 import {
-  runtimeHostConnectionStateForEntry,
-  type RuntimeHostConnectionState
-} from '@/runtime/runtime-host-connection-state'
+  runtimeHostOutageKind,
+  type RuntimeHostOutageKind
+} from '@/runtime/runtime-host-outage-kind'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 
-export type NativeChatHostOutageKind = 'reconnecting' | 'offline'
+export type NativeChatHostOutageKind = RuntimeHostOutageKind
 
 export type NativeChatHostOutage = {
   kind: NativeChatHostOutageKind
@@ -22,32 +23,13 @@ export type NativeChatHostOutage = {
 /** A blip shorter than this says nothing; an offline host is said at once. */
 export const NATIVE_CHAT_HOST_RECONNECTING_GRACE_MS = 2_000
 
-export function nativeChatHostOutageKind(
-  state: RuntimeHostConnectionState
-): NativeChatHostOutageKind | null {
-  // A closed workspace window still answers; only work that needs that window waits.
-  switch (state) {
-    case 'connected':
-    case 'workspace-window-closed':
-      return null
-    // Refused, retired by Disconnect, or never reached: no transport is coming back on its own.
-    case 'disconnected':
-      return 'offline'
-    // Still retrying; 'runtime-unavailable' is also published on every recovery, before the probe.
-    case 'checking':
-    case 'reconnecting':
-    case 'runtime-unavailable':
-      return 'reconnecting'
-  }
-}
-
 /** The chat's host outage, read from the host's connection state and never the chat's own stream. */
 export function useNativeChatHostOutage(target: RuntimeClientTarget): NativeChatHostOutage | null {
   const environmentId = target.kind === 'environment' ? target.environmentId : null
   const kind = useAppStore((s) =>
     environmentId === null
       ? null
-      : nativeChatHostOutageKind(
+      : runtimeHostOutageKind(
           runtimeHostConnectionStateForEntry(s.runtimeStatusByEnvironmentId.get(environmentId))
         )
   )

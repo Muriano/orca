@@ -1,0 +1,45 @@
+import { describe, expect, it } from 'vitest'
+import {
+  CALM_STATUS_IDLE,
+  CALM_STATUS_REVEAL_DELAY_MS
+} from '../../../src/shared/calm-status-reveal'
+import { stepCalmConnectionState } from './calm-connection-state'
+import type { ConnectionState } from './types'
+
+function present(
+  lastConnectedAt: number | null,
+  events: { at: number; state: ConnectionState }[]
+): ConnectionState[] {
+  let reveal = CALM_STATUS_IDLE
+  return events.map(({ at, state }) => {
+    const step = stepCalmConnectionState(reveal, { state, lastConnectedAt, now: at })
+    reveal = step.next
+    return step.presented
+  })
+}
+
+describe('stepCalmConnectionState', () => {
+  it('keeps the header connected through a reconnect that heals within the delay', () => {
+    expect(
+      present(0, [
+        { at: 1_000, state: 'reconnecting' },
+        { at: 2_000, state: 'handshaking' },
+        { at: 3_500, state: 'connected' }
+      ])
+    ).toEqual(['connected', 'connected', 'connected'])
+  })
+
+  it('says Reconnecting once the drop outlasts the delay', () => {
+    expect(
+      present(0, [
+        { at: 1_000, state: 'reconnecting' },
+        { at: 1_000 + CALM_STATUS_REVEAL_DELAY_MS, state: 'reconnecting' }
+      ])
+    ).toEqual(['connected', 'reconnecting'])
+  })
+
+  it('shows the first connect and a refused pairing at once', () => {
+    expect(present(null, [{ at: 0, state: 'connecting' }])).toEqual(['connecting'])
+    expect(present(0, [{ at: 1_000, state: 'auth-failed' }])).toEqual(['auth-failed'])
+  })
+})

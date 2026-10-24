@@ -42,19 +42,26 @@ function extractHost(endpoint: string): string | null {
   return host.replace(/^\[|\]$/g, '').replace(/\.$/, '') || null
 }
 
-export function isTailscaleEndpoint(endpoint: string | null | undefined): boolean {
-  if (!endpoint) {
-    return false
-  }
-  const host = extractHost(endpoint)
+/** The endpoint's host when it is a Tailscale address (what `tailscale ping` takes); else null. */
+export function tailscaleHostOfEndpoint(endpoint: string | null | undefined): string | null {
+  const host = endpoint ? extractHost(endpoint) : null
   if (!host) {
-    return false
+    return null
   }
-  return (
-    TAILSCALE_MAGIC_DNS_SUFFIX_RE.test(host) ||
+  return TAILSCALE_MAGIC_DNS_SUFFIX_RE.test(host) ||
     (IPV4_LITERAL_RE.test(host) && TAILSCALE_CGNAT_RE.test(host)) ||
     TAILSCALE_IPV6_RE.test(host)
-  )
+    ? host
+    : null
+}
+
+/** A command, never translated: the user pastes it into a shell. */
+export function tailscalePingCommand(host: string): string {
+  return `tailscale ping ${host}`
+}
+
+export function isTailscaleEndpoint(endpoint: string | null | undefined): boolean {
+  return tailscaleHostOfEndpoint(endpoint) !== null
 }
 
 /**
