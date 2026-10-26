@@ -1,4 +1,5 @@
 import { DaemonClient } from './client'
+import { DaemonPtyInputClosedIncarnations } from './daemon-pty-input-closed-incarnations'
 import { createDaemonAuditEligibilityTracker } from './daemon-audit-eligibility-event'
 import type {
   DaemonAuditContext,
@@ -113,6 +114,10 @@ export abstract class DaemonPtyRuntimeState {
   protected removeEventListener: (() => void) | null = null
   protected initialCwds = new Map<string, string>()
   protected wslDistrosBySessionId = new Map<string, string>()
+  /** ORCA_PANE_KEY a WSL session was spawned with; its shell's folder is read by it at Sleep. */
+  protected wslPaneKeysBySessionId = new Map<string, string>()
+  /** A sleeping WSL pane's shell folder, read before its final checkpoint; the checkpoint keeps it. */
+  protected sleepShellCwds = new Map<string, string>()
   protected killedSessionTombstones = new Map<string, number>()
   protected sleepRestoreSessionIds = new Set<string>()
   protected coldRestoreCache = new ColdRestorePayloadCache(undefined, (sessionId) => {
@@ -122,6 +127,7 @@ export abstract class DaemonPtyRuntimeState {
   protected getSizeUnsupported = false
   protected sessionsAwaitingDaemonRecovery = new Set<string>()
   protected sessionIncarnations = new Map<string, string>()
+  protected inputClosedIncarnations = new DaemonPtyInputClosedIncarnations()
   protected pendingSpawnOperationsBySessionId = new Map<string, Set<PendingDaemonSpawnOperation>>()
   protected pendingClaimSpawnOperations = new Set<PendingDaemonSpawnOperation>()
   protected historySpawnLocks = new Map<string, Promise<void>>()
@@ -172,6 +178,7 @@ export abstract class DaemonPtyRuntimeState {
       return
     }
     this.activeSessionIds.delete(sessionId)
+    this.inputClosedIncarnations.delete(sessionId)
     this.clearSessionAwaitingDaemonRecovery(sessionId)
     this.dirtySessionVersions.delete(sessionId)
     this.pausedProducerSessionIds.delete(sessionId)
@@ -195,6 +202,7 @@ export abstract class DaemonPtyRuntimeState {
     }
     this.initialCwds.delete(sessionId)
     this.wslDistrosBySessionId.delete(sessionId)
+    this.wslPaneKeysBySessionId.delete(sessionId)
     this.sessionIncarnations.delete(sessionId)
   }
 
